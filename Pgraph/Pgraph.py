@@ -10,7 +10,7 @@ import platform
 import pandas as pd
 
 class Pgraph():
-    def __init__(self, problem_network, mutual_exclusion=[[]], solver="INSIDEOUT",max_sol=100, input_file=None):
+    def __init__(self, problem_network, mutual_exclusion=[], solver="INSIDEOUT",max_sol=100, input_file=None):
         ''' 
         Pgraph(problem_network, mutual_exclusion=[[]], solver="INSIDEOUT",max_sol=100)
                 
@@ -112,7 +112,7 @@ class Pgraph():
         ax.set_title("Original Problem ",y=titlepos)
         return ax
     
-    def create_solver_input(self):
+    def create_solver_input(self,path=None):
         '''
         create_solver_input()
         
@@ -123,7 +123,8 @@ class Pgraph():
 
         G=self.G
         ME=self.ME
-        path=self.path
+        if path==None:
+            path=self.path
         ### MAKE INPUT FILE #############
         prelines=[
         'file_type=PNS_problem_v1','\n',
@@ -213,7 +214,11 @@ class Pgraph():
                 
         prelines.append("\n")        
                 
-        with open(path+'input.in', 'w') as f:
+        if type(self.input_file)==str:
+            file_to_write = self.input_file
+        else:
+            file_to_write = path+'input.in'
+        with open(file_to_write, 'w') as f:
             for line in prelines:
                 f.write(line)
 
@@ -235,13 +240,13 @@ class Pgraph():
         max_sol=self.max_sol
         solver=self.solver
         solver_dict={0:"MSG",1:"SSG",2:"SSGLP",3:"INSIDEOUT"}
-     
+        
         if system==None:
             system=platform.system()
             
         if system=="Windows": #support for windows
             if type(self.input_file)==str:
-                rc=subprocess.run([path+solver_name,solver, input_file, path+"test_out.out", str(max_sol)])
+                rc=subprocess.run([path+solver_name,solver, self.input_file, path+"test_out.out", str(max_sol)])
             else:
                 rc=subprocess.run([path+solver_name,solver, path+"input.in", path+"test_out.out", str(max_sol)])                
         elif system=="Linux":
@@ -257,7 +262,7 @@ class Pgraph():
             os.popen(out_string).read()
         ################
     
-    def read_solutions(self):
+    def read_solutions(self,path=None):
         '''
         read_solutions()
         
@@ -265,7 +270,8 @@ class Pgraph():
         Reads the solution from the solver.            
         '''
     
-        path=self.path
+        if path==None:
+            path=self.path
         gmatlist=[]
         goplist=[]
         goolist=[]
@@ -937,9 +943,9 @@ class Pgraph():
         solver_name= (string) For advanced users only. Choose your customized solver. 'pgraph_solver.exe' or 'pgraph_solver_new.exe'
         path = (string) path to the custom solver. If None, then the default library installation path will be used.
         '''
-        self.create_solver_input()
+        self.create_solver_input(path)
         self.solve(system=system,skip_wine=skip_wine,solver_name=solver_name,path=path)
-        self.read_solutions()
+        self.read_solutions(path)
         
     def get_info(self):
         '''
@@ -989,8 +995,8 @@ if __name__=="__main__":
     ### Prepare Network Structure #############
     G = nx.DiGraph()
     G.add_node("M1",names="Product A",type='product',flow_rate_lower_bound=100)
-    G.add_node("M2",names="Chemical A",type='raw_material',price=200,flow_rate_lower_bound=1)
-    G.add_node("M3",names="Chemical B", type='raw_material',price=100,flow_rate_lower_bound=2)
+    G.add_node("M2",names="Chemical A",type='raw_material',price=200,flow_rate_upper_bound=50)
+    G.add_node("M3",names="Chemical B", type='raw_material',price=100)
     G.add_node("O1",names="Reactor A",fix_cost=2000, proportional_cost=400)
     G.add_node("O2", names="Reactor B",fix_cost=1000, proportional_cost=400)
     G.add_edge("O1","M1", weight = 3) 
