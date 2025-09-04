@@ -10,7 +10,7 @@ import platform
 import pandas as pd
 
 class Pgraph():
-    def __init__(self, problem_network, mutual_exclusion=[], solver="INSIDEOUT",max_sol=100, input_file=None):
+    def __init__(self, problem_network, mutual_exclusion=[], solver="INSIDEOUT",max_sol=100, input_file=None, additionalData=None):
         ''' 
         Pgraph(problem_network, mutual_exclusion=[[]], solver="INSIDEOUT",max_sol=100)
                 
@@ -40,6 +40,7 @@ class Pgraph():
         self.goolist=[]
         self.wine_installed=False #For Linux Only
         self.input_file=input_file
+        self.additionalData=additionalData
         
     def plot_problem(self,figsize=(5,10),padding=0.25,titlepos=0.95,rescale=2,box=True,node_size=3000):
         '''
@@ -213,6 +214,15 @@ class Pgraph():
             prelines.append("\n")
                 
         prelines.append("\n")        
+        
+        if self.additionalData is not None:
+            if isinstance(self.additionalData, list):
+                for datavalue in self.additionalData:
+                    prelines.append(str(datavalue))
+                    prelines.append("\n")  
+            else:
+                prelines.append(str(self.additionalData))
+                prelines.append("\n")
                 
         if type(self.input_file)==str:
             file_to_write = self.input_file
