@@ -222,7 +222,7 @@ class Pgraph():
             for line in prelines:
                 f.write(line)
 
-    def solve(self,system=None,skip_wine=False, solver_name='pgraph_solver.exe',path=None):
+    def solve(self,system=None,skip_wine=False, solver_name='pgraph_solver.exe',path=None,**additionalArguments):
         '''
         solve(system=None,skip_wine=False)
         
@@ -239,16 +239,25 @@ class Pgraph():
             path=self.path
         max_sol=self.max_sol
         solver=self.solver
-        solver_dict={0:"MSG",1:"SSG",2:"SSGLP",3:"INSIDEOUT"}
+        # solver_dict={0:"MSG",1:"SSG",2:"SSGLP",3:"INSIDEOUT"}
+        
+        additionalArgumentumentList = []
+        for arg,value in additionalArguments.items():
+            additionalArgumentumentList.append("--"+arg)
+            if value is not None and value != "":
+                if isinstance(value, list):
+                    additionalArgumentumentList.extend([str(v) for v in value])
+                else:
+                    additionalArgumentumentList.append(str(value))
         
         if system==None:
             system=platform.system()
             
         if system=="Windows": #support for windows
             if type(self.input_file)==str:
-                rc=subprocess.run([path+solver_name,solver, self.input_file, path+"test_out.out", str(max_sol)])
+                rc=subprocess.run([path+solver_name,solver, self.input_file, path+"test_out.out", str(max_sol)]+additionalArgumentumentList)
             else:
-                rc=subprocess.run([path+solver_name,solver, path+"input.in", path+"test_out.out", str(max_sol)])                
+                rc=subprocess.run([path+solver_name,solver, path+"input.in", path+"test_out.out", str(max_sol)]+additionalArgumentumentList)                
         elif system=="Linux":
             #try installing dependencies
             if skip_wine==False and self.wine_installed==False:
@@ -258,7 +267,7 @@ class Pgraph():
                 os.system("apt-get update")
                 os.system("apt-get install wine32")
                 self.wine_installed=True
-            out_string=" ".join(["wine",path+solver_name,solver, path+"input.in", path+"test_out.out", str(max_sol)])
+            out_string=" ".join(["wine",path+solver_name,solver, path+"input.in", path+"test_out.out", str(max_sol)]+additionalArgumentumentList)
             os.popen(out_string).read()
         ################
     
@@ -930,7 +939,7 @@ class Pgraph():
             print("Generated P-graph Studio File at ", path)
         return header+xml    
         
-    def run(self,system=None,skip_wine=False, solver_name='pgraph_solver.exe',path=None):
+    def run(self,system=None,skip_wine=False, solver_name='pgraph_solver.exe',path=None, **additionalArguments):
         '''
         run(system=None,skip_wine=False)
         
@@ -944,7 +953,7 @@ class Pgraph():
         path = (string) path to the custom solver. If None, then the default library installation path will be used.
         '''
         self.create_solver_input(path)
-        self.solve(system=system,skip_wine=skip_wine,solver_name=solver_name,path=path)
+        self.solve(system=system,skip_wine=skip_wine,solver_name=solver_name,path=path, **additionalArguments)
         self.read_solutions(path)
         
     def get_info(self):
