@@ -10,9 +10,9 @@ import platform
 import pandas as pd
 
 class Pgraph():
-    def __init__(self, problem_network, mutual_exclusion=[], solver="INSIDEOUT",max_sol=100, input_file=None, additionalData=None):
+    def __init__(self, problem_network, mutual_exclusion=[], solver="INSIDEOUT",max_sol=100, input_file=None, additional_data=None):
         ''' 
-        Pgraph(problem_network, mutual_exclusion=[[]], solver="INSIDEOUT",max_sol=100)
+        Pgraph(problem_network, mutual_exclusion=[], solver="INSIDEOUT",max_sol=100)
                 
         Description
         This function initializes the Pgraph object and prepares the solver.
@@ -40,7 +40,7 @@ class Pgraph():
         self.goolist=[]
         self.wine_installed=False #For Linux Only
         self.input_file=input_file
-        self.additionalData=additionalData
+        self.additional_data=additional_data
         
     def plot_problem(self,figsize=(5,10),padding=0.25,titlepos=0.95,rescale=2,box=True,node_size=3000):
         '''
@@ -215,13 +215,13 @@ class Pgraph():
                 
         prelines.append("\n")        
         
-        if self.additionalData is not None:
-            if isinstance(self.additionalData, list):
-                for datavalue in self.additionalData:
+        if self.additional_data is not None:
+            if isinstance(self.additional_data, list):
+                for datavalue in self.additional_data:
                     prelines.append(str(datavalue))
                     prelines.append("\n")  
             else:
-                prelines.append(str(self.additionalData))
+                prelines.append(str(self.additional_data))
                 prelines.append("\n")
                 
         if type(self.input_file)==str:
@@ -232,7 +232,7 @@ class Pgraph():
             for line in prelines:
                 f.write(line)
 
-    def solve(self,system=None,skip_wine=False, solver_name='pgraph_solver.exe',path=None,**additionalArguments):
+    def solve(self,system=None,skip_wine=False, solver_name='pgraph_solver.exe',path=None,**additional_arguments):
         '''
         solve(system=None,skip_wine=False)
         
@@ -251,23 +251,23 @@ class Pgraph():
         solver=self.solver
         # solver_dict={0:"MSG",1:"SSG",2:"SSGLP",3:"INSIDEOUT"}
         
-        additionalArgumentumentList = []
-        for arg,value in additionalArguments.items():
-            additionalArgumentumentList.append("--"+arg)
+        additional_argument_list = []
+        for arg,value in additional_arguments.items():
+            additional_argument_list.append("--"+arg)
             if value is not None and value != "":
                 if isinstance(value, list):
-                    additionalArgumentumentList.extend([str(v) for v in value])
+                    additional_argument_list.extend([str(v) for v in value])
                 else:
-                    additionalArgumentumentList.append(str(value))
+                    additional_argument_list.append(str(value))
         
         if system==None:
             system=platform.system()
             
         if system=="Windows": #support for windows
             if type(self.input_file)==str:
-                rc=subprocess.run([path+solver_name,solver, self.input_file, path+"test_out.out", str(max_sol)]+additionalArgumentumentList)
+                rc=subprocess.run([path+solver_name,solver, self.input_file, path+"test_out.out", str(max_sol)]+additional_argument_list)
             else:
-                rc=subprocess.run([path+solver_name,solver, path+"input.in", path+"test_out.out", str(max_sol)]+additionalArgumentumentList)                
+                rc=subprocess.run([path+solver_name,solver, path+"input.in", path+"test_out.out", str(max_sol)]+additional_argument_list)                
         elif system=="Linux":
             #try installing dependencies
             if skip_wine==False and self.wine_installed==False:
@@ -277,7 +277,7 @@ class Pgraph():
                 os.system("apt-get update")
                 os.system("apt-get install wine32")
                 self.wine_installed=True
-            out_string=" ".join(["wine",path+solver_name,solver, path+"input.in", path+"test_out.out", str(max_sol)]+additionalArgumentumentList)
+            out_string=" ".join(["wine",path+solver_name,solver, path+"input.in", path+"test_out.out", str(max_sol)]+additional_argument_list)
             os.popen(out_string).read()
         ################
     
@@ -400,6 +400,7 @@ class Pgraph():
             self.goplist=goplist
             self.gmatlist=gmatlist
             self.goolist=goolist
+    
     def get_solution_as_network(self, sol_num=0):
         '''
         get_solution_as_network(sol_num=0)
@@ -948,8 +949,8 @@ class Pgraph():
             print(header+xml)
             print("Generated P-graph Studio File at ", path)
         return header+xml    
-        
-    def run(self,system=None,skip_wine=False, solver_name='pgraph_solver.exe',path=None, **additionalArguments):
+    
+    def run(self,system=None,skip_wine=False, solver_name='pgraph_solver.exe',path=None, **additional_arguments):
         '''
         run(system=None,skip_wine=False)
         
@@ -963,7 +964,7 @@ class Pgraph():
         path = (string) path to the custom solver. If None, then the default library installation path will be used.
         '''
         self.create_solver_input(path)
-        self.solve(system=system,skip_wine=skip_wine,solver_name=solver_name,path=path, **additionalArguments)
+        self.solve(system=system,skip_wine=skip_wine,solver_name=solver_name,path=path, **additional_arguments)
         self.read_solutions(path)
         
     def get_info(self):
