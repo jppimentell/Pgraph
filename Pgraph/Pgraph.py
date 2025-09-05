@@ -401,7 +401,7 @@ class Pgraph():
             self.gmatlist=gmatlist
             self.goolist=goolist
     
-    def get_solution_as_network(self, sol_num=0):
+    def get_solution_as_network(self, sol_num=0, return_excluded_nodes=False):
         '''
         get_solution_as_network(sol_num=0)
                 
@@ -410,6 +410,7 @@ class Pgraph():
         
         Arguments
         sol_num: (int) Index of the solution to be returned
+        return_excluded_nodes: (boolean) If True, the returnedd network will also contain the excluded nodes (ignored by algorithms only generating structures, e.g., SSG)
         
         Return:
         H: (networkx DiGraph() object) Directed Graph object of the solution.
@@ -420,6 +421,12 @@ class Pgraph():
         goplist=self.goplist
         goolist=self.goolist
         if self.solver in ["SSGLP","INSIDEOUT",2,3] :
+            if not return_excluded_nodes:
+                total_node=[node[0] for node in gmatlist[sol_num]]+[node[1] for node in goplist[sol_num]]
+                node_list=list(H.nodes()).copy()
+                for n in node_list:
+                    if n not in total_node:
+                        H.remove_node(n)
             for n in H.nodes():
                 if n[0]=="O":
                     H.nodes[n]['s']=mpl.markers.MarkerStyle(marker='s', fillstyle='top')
@@ -437,7 +444,7 @@ class Pgraph():
                     H.remove_node(n)
        
         return H
-        
+    
     def plot_solution(self,sol_num=0,figsize=(5,10),padding=0.25,titlepos=0.95,rescale=2,box=True,node_size=3000):
         '''
         plot_solution(sol_num=0,figsize=(5,10),padding=0,titlepos=0.95,rescale=2,box=True)
