@@ -20,8 +20,9 @@ class Pgraph():
         Arguments
         problem_network: (DiGraph() object) Directed graph object specified using networkx
         mutual_exclusion: (list of list) List of lists containing mutually excluded elements. Symbols of nodes should be used. e.g. "M1"
-        solver: (str) solver type that is used. Possibilities include "MSE", "SSG", "SSGLP" (for SSG+LP), "INSIDEOUT" (for ABB)
-        max_sol: (int) Maximum number of solutions required for the solver.       
+        solver: (str) Solver type that is used. Possibilities include "MSG", "SSG", "SSGLP" (for SSG+LP), "INSIDEOUT" (for ABB)
+        max_sol: (int) Maximum number of solutions required for the solver.
+        additional_data: (object or list of objects) Used to define additional data that needs to be put at the end of the P-graph solver input file. Necessary for specific algorithms, ignored otherwise.
         
         '''
     
@@ -119,6 +120,9 @@ class Pgraph():
         
         Description
         This function creates the solver input from the networkx DiGraph() object specified.
+        
+        Arguments
+        path: (string) Path of folder to generate the input file in (does not fontain file name, only folder location). If None, then the default library installation path will be used.
 
         '''
 
@@ -242,8 +246,9 @@ class Pgraph():
         Arguments:
         system: (string) (optional) Operating system. Options of "Windows", "Linux". MacOS is not supported yet. Specifying this makes function slightly faster.
         skip_wine: (boolean) Only relevent for Linux. Skip the dependency "wine" if it is already installed. 
-        solver_name= (string) For advanced users only. Choose your customized solver. 'pgraph_solver.exe' or 'pgraph_solver_new.exe'
-        path = (string) path to the custom solver. If None, then the default library installation path will be used.
+        solver_name: (string) For advanced users only. Choose your customized solver. 'pgraph_solver.exe' or 'pgraph_solver_new.exe'
+        path: (string) path to the custom solver. If None, then the default library installation path will be used.
+        additional_arguments: Arbitrary named arguments. Each will be forwarded to the solver executable. Example: option="value" will be forwarded as --option "value".
         '''
         if path==None:
             path=self.path
@@ -286,7 +291,10 @@ class Pgraph():
         read_solutions()
         
         Description
-        Reads the solution from the solver.            
+        Reads the solution from the solver.     
+        
+        Arguments
+        path: (string) Path of folder to generate the input file in (does not fontain file name, only folder location). If None, then the default library installation path will be used.       
         '''
     
         if path==None:
@@ -969,6 +977,7 @@ class Pgraph():
         skip_wine: (boolean) Only relevent for Linux. Skip the dependency "wine" if it is already installed. 
         solver_name= (string) For advanced users only. Choose your customized solver. 'pgraph_solver.exe' or 'pgraph_solver_new.exe'
         path = (string) path to the custom solver. If None, then the default library installation path will be used.
+        additional_arguments: Arbitrary named arguments. Each will be forwarded to the solver executable. Example: option="value" will be forwarded as --option "value".
         '''
         self.create_solver_input(path)
         self.solve(system=system,skip_wine=skip_wine,solver_name=solver_name,path=path, **additional_arguments)
