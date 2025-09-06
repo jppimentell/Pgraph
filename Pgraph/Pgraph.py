@@ -963,7 +963,111 @@ class Pgraph():
         if verbose:
             print(header+xml)
             print("Generated P-graph Studio File at ", path)
-        return header+xml    
+        return header+xml  
+    
+    @staticmethod
+    def from_studio(studio_file, solver="INSIDEOUT", max_sol=1000, add_name_prefixes=True):
+        '''
+        from_studio(studio_file="studio_file.pgsx")
+        
+        Description
+        Parses .pgsx (P-graph Studio File) file and builds a Pgraph
+        
+        Arguments
+        studio_file: (string) Name of the file
+        solver: (str) Solver type that is used. Possibilities include "MSG", "SSG", "SSGLP" (for SSG+LP), "INSIDEOUT" (for ABB)
+        max_sol: (int) Maximum number of solutions required for the solver.
+        add_name_prefixes: (boolean) If True, the function adds "M_" and "O_" prefixes in front of material and unit names. Only set to False, if all material and unit names already start with "M" and "O".
+        
+        '''
+        #TODO: Most defaults are not used
+        #TODO: There are other parts (solutions, periods), what to do with them?
+        def get_pgraph_param_value(paramlist_node, paramname):
+            return paramlist_node.xpath(f"child::Parameter[@Name='{paramname}']")[0].get("Value")
+            
+        G = nx.DiGraph()
+        
+        parser = etree.XMLParser(encoding='UTF-8')
+        with open(studio_file, 'r') as infile:
+            xml_data = etree.parse(infile, parser=parser)
+        root = xml_data.getroot()
+        segments = {child.tag: child for child in root}
+        
+        node_id_to_name = {}
+        
+        default_segments = {child.tag: child for child in segments["Default"]}
+        # material_defaults = {child.tag: child for child in default_segments["Material"]}
+        # unit_defaults = {child.tag: child for child in default_segments["OperatingUnit"]}
+        edge_defaults = {child.tag: child for child in default_segments["Edge"]}
+        edge_default_flowrate = float(edge_defaults["FlowRate"].text)
+        print(edge_default_flowrate)
+        
+        for material_item in segments["Materials"]:
+            subsegments = {child.tag: child for child in material_item}
+            material_name = material_item.get('Name')
+            material_type = int(material_item.get('Type'))
+            price = float(get_pgraph_param_value(subsegments["ParameterList"], "price"))
+            reqflow = float(get_pgraph_param_value(subsegments["ParameterList"], "reqflow"))
+            maxflow = float(get_pgraph_param_value(subsegments["ParameterList"], "maxflow"))
+            material_values = {'names':material_name}
+            if material_type == 0:
+                material_values['type'] = 'raw_material'
+            elif material_type == 1:
+                material_values['type'] = 'intermediate'
+            elif material_type == 2:
+                material_values['type'] = 'product'
+            if price != -1:
+                material_values['price'] = price
+            if reqflow != -1:
+                material_values['flow_rate_lower_bound'] = reqflow
+            if maxflow != -1:
+                material_values['flow_rate_upper_bound'] = maxflow
+            node_name = "M_"+material_name if add_name_prefixes else material_name
+            G.add_node(node_name,**material_values)
+            node_id_to_name[material_item.get('ID')] = node_name
+            
+        #TODO: For now it only handles operating costs, no support for investment cost yet
+        #TODO: What policy do we use for handling investment costs?
+        for opunit_item in segments["OperatingUnits"]:
+            subsegments = {child.tag: child for child in opunit_item}
+            unit_name = opunit_item.get('Name')
+            caplower = float(get_pgraph_param_value(subsegments["ParameterList"], "caplower"))
+            capupper = float(get_pgraph_param_value(subsegments["ParameterList"], "capupper"))
+            opercostfix = float(get_pgraph_param_value(subsegments["ParameterList"], "opercostfix"))
+            opercostprop = float(get_pgraph_param_value(subsegments["ParameterList"], "opercostprop"))
+            opunit_values = {'names':unit_name}
+            if caplower != -1:
+                opunit_values['capacity_lower_bound'] = caplower
+            if capupper != -1:
+                opunit_values['capacity_upper_bound'] = capupper
+            if opercostfix != -1:
+                opunit_values['fix_cost'] = opercostfix
+            if opercostprop != -1:
+                opunit_values['proportional_cost'] = opercostprop
+            node_name = "O_"+unit_name if add_name_prefixes else unit_name
+            G.add_node(node_name,**opunit_values)
+            node_id_to_name[opunit_item.get('ID')] = node_name
+            
+        for edge_item in segments["Edges"]:
+            begin_id = edge_item.get('BeginID')
+            end_id = edge_item.get('EndID')
+            rate = float(edge_item.get('Rate'))
+            if rate == -1:
+                rate = edge_default_flowrate
+            G.add_edge(node_id_to_name[begin_id], node_id_to_name[end_id], weight=rate)
+        
+        me_list = []
+        for me_item in segments["MutualExclusions"]:
+            subsegments = {child.tag: child for child in me_item}
+            unit_list = []
+            for unit_item in subsegments["OperatingUnits"]:
+                unit_name = unit_item.text
+                unit_list.append("O_"+unit_name if add_name_prefixes else unit_name)
+            if len(unit_list)>0:
+                me_list.append(unit_list)
+            
+        P=Pgraph(problem_network=G, mutual_exclusion=me_list, solver=solver, max_sol=max_sol)
+        return P
     
     def run(self,system=None,skip_wine=False, solver_name='pgraph_solver.exe',path=None, **additional_arguments):
         '''
