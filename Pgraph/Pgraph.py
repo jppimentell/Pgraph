@@ -38,6 +38,7 @@ class Pgraph():
         self.path=os.path.dirname(os.path.realpath(__file__))+r"/solver/"
         self.gmatlist=[]
         self.goplist=[]
+        self.gopiolist=[]
         self.goolist=[]
         self.wine_installed=False #For Linux Only
         self.input_file=input_file
@@ -114,7 +115,7 @@ class Pgraph():
         ax.set_title("Original Problem ",y=titlepos)
         return ax
     
-    def create_solver_input(self,path=None):
+    def create_solver_input(self,path=None,**additional_arguments):
         '''
         create_solver_input()
         
@@ -123,9 +124,15 @@ class Pgraph():
         
         Arguments
         path: (string) Path of folder to generate the input file in (does not fontain file name, only folder location). If None, then the default library installation path will be used.
-
+        additional_argunments: (object or list of objects) Used to define additional data that needs to be put at the end of the P-graph solver input file
+                               "max_capacity"= Maximum default capacity of units (O-type nodes)
+                               "max_flowrate_upper_bound"= Maximum default value for upper bound in M-type nodes
+                               
         '''
-
+        default_max_value=1000000000
+        max_capacity= str(additional_arguments["max_capacity"]) if "max_capacity" in additional_arguments.keys() else default_max_value
+        max_material_flowrate_upperbound= str(additional_arguments["max_flowrate_upper_bound"]) if "max_flowrate_upper_bound" in additional_arguments.keys() else default_max_value
+            
         G=self.G
         ME=self.ME
         if path==None:
@@ -143,10 +150,10 @@ class Pgraph():
         'defaults:','\n',
         'material_type=raw_material','\n',
         'material_flow_rate_lower_bound=0','\n',
-        'material_flow_rate_upper_bound=10000000','\n',
+        'material_flow_rate_upper_bound={}'.format(max_material_flowrate_upperbound),'\n',
         'material_price=0','\n',
         'operating_unit_capacity_lower_bound=0','\n',
-        'operating_unit_capacity_upper_bound=10000000','\n',
+        'operating_unit_capacity_upper_bound={}'.format(max_capacity),'\n',
         'operating_unit_fix_cost=0','\n',
         'operating_unit_proportional_cost=0','\n',
         '\n',
@@ -249,6 +256,8 @@ class Pgraph():
         solver_name: (string) For advanced users only. Choose your customized solver. 'pgraph_solver.exe' or 'pgraph_solver_new.exe'
         path: (string) path to the custom solver. If None, then the default library installation path will be used.
         additional_arguments: Arbitrary named arguments. Each will be forwarded to the solver executable. Example: option="value" will be forwarded as --option "value".
+                               "max_capacity"= Maximum default capacity of units (O-type nodes)
+                               "max_flowrate_upper_bound"= Maximum default value for upper bound in M-type nodes
         '''
         if path==None:
             path=self.path
@@ -301,6 +310,7 @@ class Pgraph():
             path=self.path
         gmatlist=[]
         goplist=[]
+        gopiolist=[]
         goolist=[]
         
         #clean strings
@@ -344,6 +354,7 @@ class Pgraph():
                 s=False
                 tmatlist=[]
                 toplist=[]
+                tiolist=[]
                 for j in range(len(sol_list[i])):
                     if sol_list[i][j][:len(comp[0])]==comp[0]: #Materials
                         comp_ind=0
@@ -371,13 +382,22 @@ class Pgraph():
                             glist=glist.replace('(', ' ')
                             glist=glist.split()
                             toplist.append(glist)
+                            
+                            giolist=sol_list[i][j].split(':')[1]
+                            giolist=giolist.replace('(',' ')
+                            giolist=giolist.replace(')',' ')
+                            giolist=giolist.replace('=>',' ')
+                            giolist=giolist.split()
+                            tiolist.append([glist[1]]+giolist)
                     if comp_ind==2:  #Total annual cost
                         goolist.append(sol_list[i][j].split()[3])
                     s=False
 
                 goplist.append(toplist)
-                gmatlist.append(tmatlist)        
-            self.goplist=goplist
+                gmatlist.append(tmatlist)   
+                gopiolist.append(tiolist)
+            self.goplist=goplist    
+            self.gopiolist=gopiolist
             self.gmatlist=gmatlist
             self.goolist=goolist
             if len(goolist)==0: 
@@ -663,7 +683,7 @@ class Pgraph():
         
         return ax
     
-    def to_studio(self, path=None,file_name="studio_file.pgsx",verbose=False):
+    def to_studio(self, path=None,file_name="studio_file.pgsx",verbose=False,**additional_params):
         '''
         to_studio(path=None,file_name="studio_file.pgsx",verbose=False)
         
@@ -674,7 +694,16 @@ class Pgraph():
         path: (string)(optional) Path of the expected output file. Default path is the directory of the file.
         file_name: (string)(optional) Name of the file. Default is "studio_file.pgsx"
         verbose: (boolean) Whether to print the content of the file.       
-        
+        additional_params: Arbitrary named arguments. Each will be forwarded to the solver executable. Example: option="value" will be forwarded as --option "value".
+                             Dictiionary to pass additional features into P-graph studio:
+            "payout_period": (In progress)
+            "money_units" : Monetary units to be shown
+            "color_nodes": Color of nodes to be shown in P-graph Studio as dictionary of integer codes of color
+                        color_nodes[node]=Int code of color
+            "color_edges":Color of edges to be shown in P-graph Studio as dictionary of integer codes of color
+                        color_edges[(e1,e2)]=Int code of color
+            "max_capacity"= Maximum default capacity of units (O-type nodes)
+            "max_flowrate_upper_bound"= Maximum default value for upper bound in M-type nodes            
         '''
         
         G=self.G
@@ -698,13 +727,15 @@ class Pgraph():
 
         #Default
         Default=etree.SubElement(PGraph,"Default")
-
+        default_max_capacity="1000000000"
+        default_payout_period="10"
+        
         ##Default Material
         Def_Material=etree.SubElement(Default,"Material")
         DM_FRLB=etree.SubElement(Def_Material,"FlowRateLowerBound")
         DM_FRLB.text="0"
         DM_FRUP=etree.SubElement(Def_Material,"FlowRateUpperBound")
-        DM_FRUP.text="1000000000"
+        DM_FRUP.text=str(additional_params["max_flowrate_upper_bound"]) if "max_flowrate_upper_bound" in additional_params.keys() else default_max_capacity
         DM_Price=etree.SubElement(Def_Material,"Price")
         DM_Price.text="0"
         DM_Type=etree.SubElement(Def_Material,"Type")
@@ -734,9 +765,9 @@ class Pgraph():
         DO_CLB=etree.SubElement(Def_Op,"CapacityLowerBound")
         DO_CLB.text="0"
         DO_CUB=etree.SubElement(Def_Op,"CapacityUpperBound")
-        DO_CUB.text="1000000000"
+        DO_CUB.text=str(additional_params["max_capacity"]) if "max_capacity" in additional_params.keys() else default_max_capacity
         DO_PP=etree.SubElement(Def_Op,"PaybackPeriod")
-        DO_PP.text="10"
+        DO_PP.text=str(additional_params["payout_period"]) if "payout_period" in additional_params.keys() else default_payout_period
         DO_WHPY=etree.SubElement(Def_Op,"WorkingHoursPerYear")
         DO_WHPY.text="8000"
         DO_FOT=etree.SubElement(Def_Op,"FixOperTime")
@@ -764,7 +795,7 @@ class Pgraph():
         DQ_QT=etree.SubElement(Def_Q,"quant_type")
         DQ_QT.text="Mass"
         DQ_MM=etree.SubElement(Def_Q,"money_mu")
-        DQ_MM.text="EUR"
+        DQ_MM.text=str(additional_params["money_units"]) if "money_units" in additional_params.keys() else "EUR"
 
         ## SolverParameter
         DEF_SP=etree.SubElement(Default,"SolverParameter")
@@ -777,11 +808,16 @@ class Pgraph():
         DS_TCLB=etree.SubElement(DEF_SP,"TotalCostLowerBound")
         DS_TCLB.text="-1000000000"
         DS_TCUB=etree.SubElement(DEF_SP,"TotalCostUpperBound")
-        DS_TCUB.text="1000000000"
+        DS_TCUB.text="1000000000" 
 
+        
+        #Color_nodes
+        color_nodes= additional_params["color_nodes"] if "color_nodes" in additional_params.keys() else dict() 
+        color_edges=  additional_params["color_edges"] if "color_edges" in additional_params.keys() else dict() 
+        
         # Materials
         Materials=etree.SubElement(PGraph,"Materials")
-
+        
         ## Material
         type_converter={"raw_material":0,"intermediate":1,"product":2}
 
@@ -816,6 +852,8 @@ class Pgraph():
                     etree.SubElement(MPar_list[-1],'Parameter',attrib={"Name":"measurementunit", "Prefix":"Measurement unit: ", "Value":"gram (g)", "Visible":"false"})
                     
                     etree.SubElement(Mats_list[-1], 'Label',attrib={"Text":G.nodes()[n]["names"]})
+                    if n in color_nodes.keys():
+                        node_color=etree.SubElement(Mats_list[-1],"Color").text=str(color_nodes[n])
         # Edges
         Edges=etree.SubElement(PGraph,"Edges")
 
@@ -827,6 +865,7 @@ class Pgraph():
         offset_list=[]
         X_list=[]
         Y_list=[]
+        
         for n in G.nodes():
             if n[0]=="O":
                 ee=G.in_edges(n)
@@ -842,8 +881,10 @@ class Pgraph():
                     X_list[-1].text="0"
                     Y_list[-1].text="0"
                     etree.SubElement(label_list[-1],"FontSize").text="-1"
+                    
                     etree.SubElement(label_list[-1],"Color").text="-16777216"
-                    etree.SubElement(edge_list[-1],'Color').text="-16777216"
+                    
+                    etree.SubElement(edge_list[-1],'Color').text=str(color_edges[(e[0],e[1])]) if (e[0],e[1])  in color_edges.keys() else "-16777216"
                     etree.SubElement(edge_list[-1],'LongFormat').text="false"
                     etree.SubElement(edge_list[-1],'Comment') #hanging
                     etree.SubElement(edge_list[-1],'CommentVisible').text="false"
@@ -863,7 +904,7 @@ class Pgraph():
                     Y_list[-1].text="0"
                     etree.SubElement(label_list[-1],"FontSize").text="-1"
                     etree.SubElement(label_list[-1],"Color").text="-16777216"
-                    etree.SubElement(edge_list[-1],'Color').text="-16777216"
+                    etree.SubElement(edge_list[-1],'Color').text=str(color_edges[(f[0],f[1])]) if (f[0],f[1])  in color_edges.keys() else "-16777216"
                     etree.SubElement(edge_list[-1],'LongFormat').text="false"
                     etree.SubElement(edge_list[-1],'Comment') #hanging
                     etree.SubElement(edge_list[-1],'CommentVisible').text="false"
@@ -907,6 +948,9 @@ class Pgraph():
                 etree.SubElement(OPar_list[-1],'Parameter',attrib={"Name":"payoutperiod", "Prefix":"Payout Period: ", "Value":"-1", "Visible":"false"})
                 
                 etree.SubElement(opu_list[-1], 'Label',attrib={"Text":G.nodes()[n]["names"]})
+                if n in color_nodes.keys():
+                    node_color=etree.SubElement(opu_list[-1],"Color").text=str(color_nodes[n])
+                    
         # MutualExclusions
         MutualExclusions=etree.SubElement(PGraph,"MutualExclusions")
 
@@ -997,10 +1041,11 @@ class Pgraph():
         
         default_segments = {child.tag: child for child in segments["Default"]}
         # material_defaults = {child.tag: child for child in default_segments["Material"]}
-        # unit_defaults = {child.tag: child for child in default_segments["OperatingUnit"]}
+        unit_defaults = {child.tag: child for child in default_segments["OperatingUnit"]}
         edge_defaults = {child.tag: child for child in default_segments["Edge"]}
+        unit_default_payoutperiod = float(unit_defaults["PayoutPeriod"].text)
         edge_default_flowrate = float(edge_defaults["FlowRate"].text)
-        print(edge_default_flowrate)
+        #print(edge_default_flowrate)
         
         for material_item in segments["Materials"]:
             subsegments = {child.tag: child for child in material_item}
@@ -1026,8 +1071,8 @@ class Pgraph():
             G.add_node(node_name,**material_values)
             node_id_to_name[material_item.get('ID')] = node_name
             
-        #TODO: For now it only handles operating costs, no support for investment cost yet
-        #TODO: What policy do we use for handling investment costs?
+        #TODO: Investment cost policy for now: same as P-Graph Studio: divide by payout period and add to operating cost
+        #TODO: Is this ok?
         for opunit_item in segments["OperatingUnits"]:
             subsegments = {child.tag: child for child in opunit_item}
             unit_name = opunit_item.get('Name')
@@ -1035,15 +1080,24 @@ class Pgraph():
             capupper = float(get_pgraph_param_value(subsegments["ParameterList"], "capupper"))
             opercostfix = float(get_pgraph_param_value(subsegments["ParameterList"], "opercostfix"))
             opercostprop = float(get_pgraph_param_value(subsegments["ParameterList"], "opercostprop"))
+            invcostfix = float(get_pgraph_param_value(subsegments["ParameterList"], "investcostfix"))
+            invcostprop = float(get_pgraph_param_value(subsegments["ParameterList"], "investcostprop"))
+            payoutperiod = float(get_pgraph_param_value(subsegments["ParameterList"], "payoutperiod"))
             opunit_values = {'names':unit_name}
+            if payoutperiod == -1:
+                payoutperiod = unit_default_payoutperiod
             if caplower != -1:
                 opunit_values['capacity_lower_bound'] = caplower
             if capupper != -1:
                 opunit_values['capacity_upper_bound'] = capupper
             if opercostfix != -1:
                 opunit_values['fix_cost'] = opercostfix
+                if invcostfix != -1:
+                    opunit_values['fix_cost'] += invcostfix / payoutperiod
             if opercostprop != -1:
                 opunit_values['proportional_cost'] = opercostprop
+                if invcostprop != -1:
+                    opunit_values['proportional_cost'] += invcostprop / payoutperiod
             node_name = "O_"+unit_name if add_name_prefixes else unit_name
             G.add_node(node_name,**opunit_values)
             node_id_to_name[opunit_item.get('ID')] = node_name
@@ -1069,6 +1123,85 @@ class Pgraph():
         P=Pgraph(problem_network=G, mutual_exclusion=me_list, solver=solver, max_sol=max_sol)
         return P
     
+    def write_results_to_studio_file(self, studio_file, target_file=""):
+        parser = etree.XMLParser(encoding='UTF-8',remove_blank_text=True)
+        with open(studio_file, 'r') as infile:
+            xml_data = etree.parse(infile, parser=parser)
+        root = xml_data.getroot()
+        segments = {child.tag: child for child in root}
+        if "Solutions" in segments:
+            root.remove(segments['Solutions'])
+            
+        def get_pgraph_param_value(paramlist_node, paramname):
+            return paramlist_node.xpath(f"child::Parameter[@Name='{paramname}']")[0].get("Value")
+        
+        default_segments = {child.tag: child for child in segments["Default"]}
+        quantity_defaults = {child.tag: child for child in default_segments["Quantity"]}
+        default_measure_unit = quantity_defaults["default_mes"].text.split("(")[1].split(")")[0]
+        default_time_unit = quantity_defaults["time_mu"].text
+        
+        material_name_to_element = {}
+        material_id_to_element = {}
+        material_name_to_measure_unit = {}
+        for material_item in segments["Materials"]:
+            subsegments = {child.tag: child for child in material_item}
+            material_name_to_element[material_item.get('Name')] = material_item
+            material_id_to_element[material_item.get('ID')] = material_item
+            material_name_to_measure_unit[material_item.get('Name')] = get_pgraph_param_value(subsegments["ParameterList"], "measurementunit").split("(")[1].split(")")[0]
+            
+        unit_name_to_element = {}
+        unit_id_to_element = {}
+        for unit_item in segments["OperatingUnits"]:
+            unit_name_to_element[unit_item.get('Name')] = unit_item
+            unit_id_to_element[unit_item.get('ID')] = unit_item
+        
+        Solutions=etree.SubElement(root,"Solutions")
+
+        ## Solution 
+        ssol_list=[]
+        smats_list=[]
+        sops_list=[]
+        sop_list=[]
+
+        for i in range(len(self.goolist)):
+            snum=i+1
+            attr={"Index":str(i), "Title":"Feasible structure #"+str(snum), "OptimalValue":str(self.goolist[i]),"TotalTime":"0", "TotalMakespan":"0", "ObjectiveValue":"0", "AlgorithmUsed":self.solver}
+            ssol_list.append(etree.SubElement(Solutions,"Solution",attrib=attr))
+            smats_list.append(etree.SubElement(ssol_list[-1],"Materials"))
+            for x in self.gmatlist[i]:
+                attr={"Name":x[0][2:],"Flow":str(x[3]),"Cost":str(x[1]), "MU": f"{material_name_to_measure_unit[x[0][2:]]}/{default_time_unit}"}
+                etree.SubElement(smats_list[-1],"Material",attrib=attr)
+            
+            sops_list.append(etree.SubElement(ssol_list[-1],"OperatingUnits"))
+            for x_i in range(len(self.goplist[i])):
+                x = self.goplist[i][x_i]
+                attr={"Name":x[1][2:],"Size":str(x[0]),"Cost":str(x[2]),"MU":f"{default_measure_unit}/{default_time_unit}"}
+                sop_list.append(etree.SubElement(sops_list[-1],"OperatingUnit",attrib=attr))
+                input_element = etree.SubElement(sop_list[-1],"Input")
+                output_element = etree.SubElement(sop_list[-1],"Output")
+                io_index = 1
+                connected_materials = self.gopiolist[i][x_i]
+                while io_index < len(connected_materials):
+                    mat_name = connected_materials[io_index][2:]
+                    flow = float(connected_materials[io_index+1])
+                    mat_unit = material_name_to_measure_unit[mat_name]
+                    attr={"Name":mat_name,"Flow":str(flow),"Cost":"0", "MU": f"{mat_unit}/{default_time_unit}"}
+                    if flow < 0:
+                        etree.SubElement(input_element,"Material",attrib=attr)
+                    else:
+                        etree.SubElement(output_element,"Material",attrib=attr)
+                    io_index += 3
+        
+        header=r'<?xml version="1.0" encoding="utf-16"?>'+"\n"
+        xml_as_text=etree.tostring(xml_data,pretty_print=True,encoding='unicode', method='xml')
+        if target_file == "":
+            outfile = studio_file
+        else:
+            outfile = target_file
+        with open(outfile,"w") as f:
+            f.write(header)
+            f.write(xml_as_text)
+    
     def run(self,system=None,skip_wine=False, solver_name='pgraph_solver.exe',path=None, **additional_arguments):
         '''
         run(system=None,skip_wine=False)
@@ -1082,8 +1215,10 @@ class Pgraph():
         solver_name= (string) For advanced users only. Choose your customized solver. 'pgraph_solver.exe' or 'pgraph_solver_new.exe'
         path = (string) path to the custom solver. If None, then the default library installation path will be used.
         additional_arguments: Arbitrary named arguments. Each will be forwarded to the solver executable. Example: option="value" will be forwarded as --option "value".
-        '''
-        self.create_solver_input(path)
+                       "max_capacity"= Maximum default capacity of units (O-type nodes)
+                       "max_flowrate_upper_bound"= Maximum default value for upper bound in M-type nodes
+'''
+        self.create_solver_input(path,**additional_arguments)
         self.solve(system=system,skip_wine=skip_wine,solver_name=solver_name,path=path, **additional_arguments)
         self.read_solutions(path)
         
