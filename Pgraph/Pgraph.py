@@ -127,11 +127,12 @@ class Pgraph():
         additional_argunments: (object or list of objects) Used to define additional data that needs to be put at the end of the P-graph solver input file
                                "max_capacity"= Maximum default capacity of units (O-type nodes)
                                "max_flowrate_upper_bound"= Maximum default value for upper bound in M-type nodes
-                               
+
         '''
         default_max_value=1000000000
         max_capacity= str(additional_arguments["max_capacity"]) if "max_capacity" in additional_arguments.keys() else default_max_value
         max_material_flowrate_upperbound= str(additional_arguments["max_flowrate_upper_bound"]) if "max_flowrate_upper_bound" in additional_arguments.keys() else default_max_value
+
             
         G=self.G
         ME=self.ME
@@ -703,7 +704,8 @@ class Pgraph():
             "color_edges":Color of edges to be shown in P-graph Studio as dictionary of integer codes of color
                         color_edges[(e1,e2)]=Int code of color
             "max_capacity"= Maximum default capacity of units (O-type nodes)
-            "max_flowrate_upper_bound"= Maximum default value for upper bound in M-type nodes            
+            "max_flowrate_upper_bound"= Maximum default value for upper bound in M-type nodes 
+            
         '''
         
         G=self.G
@@ -808,13 +810,15 @@ class Pgraph():
         DS_TCLB=etree.SubElement(DEF_SP,"TotalCostLowerBound")
         DS_TCLB.text="-1000000000"
         DS_TCUB=etree.SubElement(DEF_SP,"TotalCostUpperBound")
-        DS_TCUB.text="1000000000" 
 
+        DS_TCUB.text="1000000000"
         
         #Color_nodes
         color_nodes= additional_params["color_nodes"] if "color_nodes" in additional_params.keys() else dict() 
         color_edges=  additional_params["color_edges"] if "color_edges" in additional_params.keys() else dict() 
+
         
+  
         # Materials
         Materials=etree.SubElement(PGraph,"Materials")
         
@@ -883,8 +887,8 @@ class Pgraph():
                     etree.SubElement(label_list[-1],"FontSize").text="-1"
                     
                     etree.SubElement(label_list[-1],"Color").text="-16777216"
-                    
-                    etree.SubElement(edge_list[-1],'Color').text=str(color_edges[(e[0],e[1])]) if (e[0],e[1])  in color_edges.keys() else "-16777216"
+
+                    etree.SubElement(edge_list[-1],'Color').text=str(color_edges[(e[0],e[1])]) if (e[0],e[1])  in color_edges.keys() else "-16777216"               
                     etree.SubElement(edge_list[-1],'LongFormat').text="false"
                     etree.SubElement(edge_list[-1],'Comment') #hanging
                     etree.SubElement(edge_list[-1],'CommentVisible').text="false"
@@ -950,7 +954,7 @@ class Pgraph():
                 etree.SubElement(opu_list[-1], 'Label',attrib={"Text":G.nodes()[n]["names"]})
                 if n in color_nodes.keys():
                     node_color=etree.SubElement(opu_list[-1],"Color").text=str(color_nodes[n])
-                    
+
         # MutualExclusions
         MutualExclusions=etree.SubElement(PGraph,"MutualExclusions")
 
