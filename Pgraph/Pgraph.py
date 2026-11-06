@@ -474,7 +474,7 @@ class Pgraph():
        
         return H
     
-    def plot_solution(self,sol_num=0,figsize=(5,10),padding=0.25,titlepos=0.95,rescale=2,box=True,node_size=3000):
+    def plot_solution(self,sol_num=0,figsize=(5,10),padding=0.25,titlepos=0.95,rescale=2,box=True,node_size=3000,show_labels=True):
         '''
         plot_solution(sol_num=0,figsize=(5,10),padding=0,titlepos=0.95,rescale=2,box=True)
                 
@@ -488,6 +488,7 @@ class Pgraph():
         titlepos: (float) Position of title in the figure
         rescale: (float) Rescaling the axis of the figures. Makes nodes further apart and appear smaller.
         box: (boolean) Whether the figure should appear square.
+        show_labels: When True shows all information of nodes, when false, it shows only names
         
         Return:
         ax: (matplotlib.axes) Axes of the figure. Can be manipulated further before plotting.
@@ -499,11 +500,13 @@ class Pgraph():
         goplist=self.goplist
         goolist=self.goolist
         
-
+       
         if self.solver in ["SSGLP","INSIDEOUT",2,3] and len(goolist)!=0:
             for n in H.nodes():
                 if n[0]=="O":
                     H.nodes[n]['s']=mpl.markers.MarkerStyle(marker='s', fillstyle='top')
+                    # H.nodes[n]['s']="s"
+                    
                 else:
                     H.nodes[n]['s']='o'
             attr_op={x[1]:{"Capacity":x[0],"Cost":x[2]} for x in goplist[sol_num]}
@@ -516,6 +519,7 @@ class Pgraph():
             weights = [H[u][v]['weight'] for u,v in edges]
             labels = nx.get_edge_attributes(H,'weight')
             labels={k:round(v,2) for k,v in labels.items()}
+            
             labels_flow=nx.get_node_attributes(H,'Flow')
             labels_cap=nx.get_node_attributes(H,'Capacity')
             labels_cost=nx.get_node_attributes(H,'Cost')
@@ -523,15 +527,15 @@ class Pgraph():
             labels1={}
             for x in all_node:
                 string=H.nodes()[x]['names']
-                if labels_flow.get(x) is not None:
-                    string=string+"\nFlow="+str(abs(float(labels_flow.get(x))))
-                
-                if labels_cap.get(x) is not None:
-                    string=string+"\nCap.="+str(labels_cap.get(x))
+                if show_labels==True:
+                    if labels_flow.get(x) is not None:
+                        string=string+"\nFlow="+str(abs(float(labels_flow.get(x))))
+                    if labels_cap.get(x) is not None:
+                        string=string+"\nCap.="+str(labels_cap.get(x))
+                        
+                    if labels_cost.get(x) is not None:    
+                        string=string+"\nCost="+str(labels_cost.get(x))
                     
-                if labels_cost.get(x) is not None:    
-                    string=string+"\nCost="+str(labels_cost.get(x))
-                
                 labels1.update({x:string})
 
             for e in H.edges():
@@ -555,25 +559,37 @@ class Pgraph():
             edge_color_list=[H[e[0]][e[1]]['color'] for e in H.edges()]    
             
             nodeShapes = set((aShape[1]["s"] for aShape in H.nodes(data = True)))
+            
+            H.graph.setdefault("graph", {}).update({
+                    "rankdir": "TB",   # layout direction
+                    "ranksep": "1.0",  # separation between ranks
+                    "nodesep": "0.8",  # separation between nodes within a rank
+                    "ordering": "out", # preserve outgoing-edge order where possible
+                })
 
             pos=pydot_layout(H,prog='dot')
-            pos2=pydot_layout(H,prog='dot')
+            # pos2=pydot_layout(H,prog='dot')
+            pos2 = dict(pos)
             
 
             for key, (v1,v2) in pos2.items():
                 if key[0]=="O":
                     pos2[key]=(v1,v2-3)
+            
+            
             pos=nx.rescale_layout_dict(pos,scale=rescale)
             pos2=nx.rescale_layout_dict(pos2,scale=rescale)
-            nx.draw_networkx(H, pos=pos,labels=labels1, node_color='white',alpha=0.9,node_shape='o', edge_color=edge_color_list, with_labels = True,node_size=node_size,bbox=label_options,width=weights,font_size=10)
+            nx.draw_networkx(H, pos=pos,labels=labels1, node_color='white',alpha=0.9,node_shape='o', edge_color=edge_color_list, with_labels = True,node_size=node_size,bbox=label_options,width=1,font_size=9)
+            
             for aShape in nodeShapes:
                 node_list=[sNode[0] for sNode in filter(lambda x: x[1]["s"]==aShape,H.nodes(data = True))]
-                if aShape=="o":
-                    node_size1=node_size
-                else:
-                    node_size1=node_size*2
-                for node in node_list:
-                    nx.draw_networkx_nodes(H,pos=pos2,node_color=H.nodes()[node]['color'],node_shape = aShape, nodelist =[node] ,node_size=node_size1) 
+                node_size1=node_size if aShape=="o" else node_size*2
+
+                # for node in node_list:
+                #     nx.draw_networkx_nodes(H,pos=pos2,node_color=H.nodes()[node]['color'],node_shape = aShape, nodelist =[node] ,node_size=node_size1) 
+                colors = [H.nodes[node]["color"] for node in node_list]
+                
+                nx.draw_networkx_nodes(H,pos=pos2,nodelist=node_list,node_color=colors,node_shape=aShape,node_size=node_size1)
             
             for key, values in nx.get_node_attributes(H,'type').items():
                 if values=="raw_material":
@@ -583,7 +599,18 @@ class Pgraph():
                     nx.draw_networkx_nodes(H,pos=pos,node_color=H.nodes()[key]['color'],node_shape = 'o', nodelist = [key],node_size=node_size/3*1.25)
                     nx.draw_networkx_nodes(H,pos=pos,node_color='white',node_shape = 'o', nodelist = [key],node_size=node_size/3*0.75)
             
-            nx.draw_networkx_edge_labels(H, pos=pos,edge_labels=labels)
+            #Labels
+            labels_flows = {}
+
+            for e, weight in labels.items():
+                unit_e = e[0] if e[0][:2] == "O_" else e[1]
+            
+                if unit_e in attr_op.keys():
+                    labels_flows[e] = round(weight * float(attr_op[unit_e]['Capacity']),4)
+            
+            
+            
+            nx.draw_networkx_edge_labels(H, pos=pos,edge_labels=labels_flows)
             ax= plt.gca()
             plt.axis('off')
             ax.autoscale()
@@ -645,7 +672,7 @@ class Pgraph():
                     pos2[key]=(v1,v2-3)
             pos=nx.rescale_layout_dict(pos,scale=rescale)
             pos2=nx.rescale_layout_dict(pos2,scale=rescale)
-            nx.draw_networkx(H, pos=pos,labels=labels1, node_color='white',alpha=0.9,node_shape='o', edge_color=edge_color_list, with_labels = True,node_size=node_size,bbox=label_options,width=weights,font_size=10)
+            nx.draw_networkx(H, pos=pos,labels=labels1, node_color='white',alpha=0.9,node_shape='o', edge_color=edge_color_list, with_labels = True,node_size=node_size,bbox=label_options,width=1,font_size=10)
             for aShape in nodeShapes:
                 node_list=[sNode[0] for sNode in filter(lambda x: x[1]["s"]==aShape,H.nodes(data = True))]
                 if aShape=="o":
